@@ -1,4 +1,4 @@
-![blurt_logo](https://github.com/user-attachments/assets/2ff1b231-3afa-4976-95a9-4b0d6315312e)
+<img width="2048" height="852" alt="blurtrtansparent12" src="https://github.com/user-attachments/assets/57dbdb3f-f362-42bd-8f1b-6229f618a9cc" />
 
 
 # blurt.
