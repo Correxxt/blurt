@@ -8,7 +8,7 @@ A desktop revision app for the blurting method.
 [![Latest Release](https://img.shields.io/github/v/release/maaskye/blurt?display_name=tag&sort=semver)](https://github.com/maaskye/blurt/releases)
 [![License](https://img.shields.io/github/license/maaskye/blurt)](./LICENSE)
 
-## What blurt helps you do
+<img width="2560" height="400" alt="blurtrepo-text" src="https://github.com/user-attachments/assets/719fd486-554e-44fb-b4fe-3470f1238836" />
 
 - Run a timed blurting session.
 - Add ideas quickly by pressing `Enter`.
@@ -16,15 +16,15 @@ A desktop revision app for the blurting method.
 - End early when you are done.
 - Review everything in one clean view.
 
-## Download
+<img width="2560" height="400" alt="blurtrepo-text (1)" src="https://github.com/user-attachments/assets/21776dc6-fb6e-415f-9520-d3090834fd1f" />
 
-Get the latest version from [Releases](https://github.com/maaskye/blurt/releases).
+**Get the latest version from** [Releases](https://github.com/maaskye/blurt/releases).
 
 Look for:
 - **macOS**: `.dmg` or `.app.tar.gz`
 - **Windows**: `.exe` or `.msi`
 
-## Install
+<img width="2560" height="400" alt="blurtrepo-text (2)" src="https://github.com/user-attachments/assets/4058bb53-133a-489b-982d-bc3b3610332c" />
 
 ### macOS
 1. Download the latest macOS build from Releases.
@@ -37,7 +37,7 @@ Look for:
 2. Run the installer.
 3. Open Blurt from Start Menu/Desktop.
 
-## How to use
+<img width="2560" height="400" alt="blurtrepo-text (3)" src="https://github.com/user-attachments/assets/e2e6e2d3-7def-45f0-8f60-338bf712372d" />
 
 1. Open **Quick Start**.
 2. Add your topic/session title.
@@ -48,16 +48,16 @@ Look for:
 7. Press **Stop Early** or let the timer end.
 8. Review and export if needed.
 
-## Keyboard shortcuts
+### Keyboard shortcuts
 
 - `Enter` → add note
 - `Ctrl/Cmd + Z` → undo last note
 
-## Current status
+### Current status
 
 blurt is actively improving. UI and flows may be updated between releases.
 
-## Cloud Sync
+<img width="2560" height="400" alt="blurtrepo-text (4)" src="https://github.com/user-attachments/assets/eccbeaad-dfec-4c15-af60-7032df47f483" />
 
 blurt can run in three storage modes:
 
@@ -84,12 +84,12 @@ Auth in cloud mode:
 - Email magic link / email code
 - SMS code (if phone provider is configured in Supabase)
 
-## Need help?
+<img width="2560" height="400" alt="blurtrepo-text (5)" src="https://github.com/user-attachments/assets/f9d4aaf4-ffbc-44c0-bb24-4e2adc7e2a31" />
 
 If something is not working, open an issue here:
 - [Report a bug](https://github.com/maaskye/blurt/issues)
 
-## For developers
+<img width="2560" height="400" alt="blurtrepo-text (6)" src="https://github.com/user-attachments/assets/1503eca7-0ebc-4360-8726-ad81fb709827" />
 
 Technical/project docs are kept separately:
 
