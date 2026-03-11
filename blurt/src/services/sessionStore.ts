@@ -19,6 +19,8 @@ const getTempSessionPath = async (id: string) => {
 const normalizeSession = (raw: Session): Session => ({
   ...raw,
   schemaVersion: raw.schemaVersion ?? SESSION_SCHEMA_VERSION,
+  folderId: raw.folderId ?? undefined,
+  isPinned: raw.isPinned ?? false,
   notes: raw.notes ?? []
 });
 
@@ -64,5 +66,10 @@ export const sessionStore = {
     } catch {
       return null;
     }
+  },
+
+  async remove(id: string): Promise<void> {
+    const path = await getSessionPath(id);
+    await remove(path, { baseDir: BaseDirectory.AppData });
   }
 };

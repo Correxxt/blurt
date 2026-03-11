@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { prefersReducedMotion } from '../../utils/motion';
 
 type Props = {
   onComplete: () => void;
@@ -9,10 +10,9 @@ const REDUCED_MOTION_DURATION_MS = 250;
 
 export const StartupSplash = ({ onComplete }: Props) => {
   useEffect(() => {
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const timeoutId = window.setTimeout(
       onComplete,
-      prefersReducedMotion ? REDUCED_MOTION_DURATION_MS : SPLASH_DURATION_MS
+      prefersReducedMotion() ? REDUCED_MOTION_DURATION_MS : SPLASH_DURATION_MS
     );
     return () => window.clearTimeout(timeoutId);
   }, [onComplete]);

@@ -1,10 +1,12 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { SessionFolder } from '../types/folder';
 import { SessionTemplate } from '../types/template';
 
 type StartPayload = {
   title: string;
   prompt?: string;
   durationSec: number;
+  folderId?: string;
 };
 
 type TemplatePayload = {
@@ -21,6 +23,7 @@ type Props = {
   onSaveTemplate?: (payload: TemplatePayload) => Promise<void> | void;
   onUpdateTemplate?: (id: string, payload: TemplatePayload) => Promise<void> | void;
   onDeleteTemplate?: (id: string) => Promise<void> | void;
+  folders?: SessionFolder[];
   startDisabled?: boolean;
   startError?: string | null;
 };
@@ -39,6 +42,7 @@ export const SessionSetupView = ({
   onSaveTemplate,
   onUpdateTemplate,
   onDeleteTemplate,
+  folders = [],
   startDisabled = false,
   startError = null
 }: Props) => {
@@ -50,6 +54,7 @@ export const SessionSetupView = ({
   const [logoErrored, setLogoErrored] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [templateName, setTemplateName] = useState('');
+  const [selectedFolderId, setSelectedFolderId] = useState('');
 
   const wheelRef = useRef<HTMLDivElement | null>(null);
   const cancelRef = useRef<HTMLButtonElement | null>(null);
@@ -185,7 +190,8 @@ export const SessionSetupView = ({
     void onStart({
       title: title.trim(),
       prompt: prompt.trim() || undefined,
-      durationSec: durationMin * 60
+      durationSec: durationMin * 60,
+      folderId: selectedFolderId || undefined
     });
   };
 
@@ -354,6 +360,17 @@ export const SessionSetupView = ({
         </>
       )}
 
+      <label>
+        Folder (optional)
+        <select className="template-select" value={selectedFolderId} onChange={(event) => setSelectedFolderId(event.target.value)}>
+          <option value="">Unfiled</option>
+          {folders.map((folder) => (
+            <option key={folder.id} value={folder.id}>
+              {folder.name}
+            </option>
+          ))}
+        </select>
+      </label>
       <label>
         Topic / Session Title
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Experiment Design" />

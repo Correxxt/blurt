@@ -71,7 +71,23 @@ export const animateRaf = (
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
+const getMotionOverride = () => {
+  if (typeof document === 'undefined') {
+    return 'system';
+  }
+
+  return document.documentElement.dataset.motion ?? 'system';
+};
+
 export const prefersReducedMotion = () => {
+  const override = getMotionOverride();
+  if (override === 'reduce') {
+    return true;
+  }
+  if (override === 'full') {
+    return false;
+  }
+
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
     return false;
   }
@@ -86,11 +102,18 @@ export const subscribeReducedMotion = (onChange: (isReduced: boolean) => void) =
 
   const mediaQuery = window.matchMedia(REDUCED_MOTION_QUERY);
   const handler = () => onChange(mediaQuery.matches);
-  handler();
+  const notify = () => {
+    onChange(prefersReducedMotion());
+  };
+  notify();
 
   if (typeof mediaQuery.addEventListener === 'function') {
-    mediaQuery.addEventListener('change', handler);
-    return () => mediaQuery.removeEventListener('change', handler);
+    mediaQuery.addEventListener('change', notify);
+    window.addEventListener('blurt:preferences-changed', notify as EventListener);
+    return () => {
+      mediaQuery.removeEventListener('change', notify);
+      window.removeEventListener('blurt:preferences-changed', notify as EventListener);
+    };
   }
 
   const legacyQuery = mediaQuery as MediaQueryList & {
@@ -99,5 +122,9 @@ export const subscribeReducedMotion = (onChange: (isReduced: boolean) => void) =
   };
 
   legacyQuery.addListener?.(handler);
-  return () => legacyQuery.removeListener?.(handler);
+  window.addEventListener('blurt:preferences-changed', notify as EventListener);
+  return () => {
+    legacyQuery.removeListener?.(handler);
+    window.removeEventListener('blurt:preferences-changed', notify as EventListener);
+  };
 };

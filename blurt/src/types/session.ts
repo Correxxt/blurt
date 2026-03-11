@@ -16,6 +16,8 @@ export type Session = {
   durationSec: number;
   startedAtMs: number;
   endedAtMs?: number;
+  folderId?: string;
+  isPinned?: boolean;
   notes: SessionNote[];
 };
 

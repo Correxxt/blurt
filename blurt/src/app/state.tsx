@@ -1,5 +1,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { authService, AuthUser } from '../services/authService';
+import { folderStore } from '../services/folderStore';
+import { folderStoreCloud } from '../services/folderStoreCloud';
 import { offlineCache } from '../services/offlineCache';
 import { sessionStore } from '../services/sessionStore';
 import { sessionStoreCloud } from '../services/sessionStoreCloud';
@@ -7,6 +9,7 @@ import { getStorageMode, isCloudBackedMode, StorageMode } from '../services/stor
 import { isSupabaseConfigured } from '../services/supabaseClient';
 import { templateStore } from '../services/templateStore';
 import { templateStoreCloud } from '../services/templateStoreCloud';
+import { SessionFolder } from '../types/folder';
 import { Session, SESSION_SCHEMA_VERSION, SessionSummary } from '../types/session';
 import { SessionTemplate } from '../types/template';
 
@@ -14,6 +17,7 @@ type StartPayload = {
   title: string;
   prompt?: string;
   durationSec: number;
+  folderId?: string;
 };
 
 type TemplatePayload = {
@@ -25,13 +29,21 @@ type TemplatePayload = {
 
 type AppStateValue = {
   sessions: Session[];
+  folders: SessionFolder[];
   templates: SessionTemplate[];
   latestSession: Session | null;
   loading: boolean;
   startSession: (payload: StartPayload) => Promise<Session>;
   saveSession: (session: Session) => Promise<void>;
+  deleteSession: (id: string) => Promise<void>;
+  createFolder: (name: string) => Promise<void>;
+  renameFolder: (id: string, name: string) => Promise<void>;
+  deleteFolder: (id: string) => Promise<void>;
+  moveSessionToFolder: (sessionId: string, folderId?: string) => Promise<void>;
+  toggleSessionPin: (sessionId: string) => Promise<void>;
   getSession: (id: string) => Promise<Session | null>;
   refreshSessions: () => Promise<void>;
+  refreshFolders: () => Promise<void>;
   saveTemplate: (payload: TemplatePayload) => Promise<void>;
   updateTemplate: (id: string, payload: TemplatePayload) => Promise<void>;
   deleteTemplate: (id: string) => Promise<void>;
@@ -99,6 +111,7 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
   const authEnabled = authRequired ? isSupabaseConfigured() : false;
 
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [folders, setFolders] = useState<SessionFolder[]>([]);
   const [templates, setTemplates] = useState<SessionTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(authRequired && authEnabled);
@@ -230,13 +243,43 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [authUser, cloudActive, cloudWritable]);
 
+  const refreshFolders = useCallback(async () => {
+    try {
+      if (!cloudActive) {
+        const next = await folderStore.list();
+        setFolders(next);
+        return;
+      }
+
+      if (!cloudWritable) {
+        const cacheUserId = authUser?.id ?? offlineCache.getLastUserId();
+        setFolders(offlineCache.readFolders(cacheUserId));
+        return;
+      }
+
+      const next = await folderStoreCloud.list();
+      setFolders(next);
+      if (authUser) {
+        offlineCache.cacheFolders(authUser.id, next);
+      }
+    } catch (error) {
+      const cacheUserId = authUser?.id ?? offlineCache.getLastUserId();
+      setFolders(offlineCache.readFolders(cacheUserId));
+      if (cloudActive) {
+        setAuthStatusMessage(`Folder sync failed: ${extractErrorMessage(error, 'Unable to load folders.')}`);
+      } else {
+        setAuthStatusMessage(`Local folder load failed: ${extractErrorMessage(error, 'Unable to load local folders.')}`);
+      }
+    }
+  }, [authUser, cloudActive, cloudWritable]);
+
   useEffect(() => {
     let mounted = true;
     const init = async () => {
       if (cloudActive && authLoading) {
         return;
       }
-      await Promise.all([refreshSessions(), refreshTemplates()]);
+      await Promise.all([refreshSessions(), refreshFolders(), refreshTemplates()]);
       if (mounted) {
         setLoading(false);
       }
@@ -245,7 +288,7 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       mounted = false;
     };
-  }, [authLoading, cloudActive, refreshSessions, refreshTemplates]);
+  }, [authLoading, cloudActive, refreshFolders, refreshSessions, refreshTemplates]);
 
   const persistSession = useCallback(
     async (session: Session): Promise<void> => {
@@ -286,6 +329,8 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
         prompt: payload.prompt,
         durationSec: payload.durationSec,
         startedAtMs: Date.now(),
+        folderId: payload.folderId,
+        isPinned: false,
         notes: []
       };
 
@@ -321,6 +366,37 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
     [persistSession, refreshSessions]
   );
 
+  const deleteSession = useCallback(
+    async (id: string) => {
+      setSessions((prev) => prev.filter((item) => item.id !== id));
+
+      try {
+        if (!cloudActive) {
+          await sessionStore.remove(id);
+        } else if (!cloudWritable) {
+          setAuthStatusMessage('Cloud is read-only right now. Reconnect and sign in to delete sessions.');
+          return;
+        } else {
+          await sessionStoreCloud.remove(id);
+          if (storageMode === 'hybrid') {
+            try {
+              await sessionStore.remove(id);
+            } catch {
+              // Mirror delete is best-effort only.
+            }
+          }
+        }
+
+        const cacheUserId = authUser?.id ?? offlineCache.getLastUserId();
+        offlineCache.removeSession(cacheUserId, id);
+        await refreshSessions();
+      } catch (error) {
+        setAuthStatusMessage(`Session delete failed: ${extractErrorMessage(error, 'Unknown error.')}`);
+      }
+    },
+    [authUser, cloudActive, cloudWritable, refreshSessions, storageMode]
+  );
+
   const getSession = useCallback(
     async (id: string) => {
       const existing = sessions.find((session) => session.id === id);
@@ -343,6 +419,131 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
       }
     },
     [authUser, cloudActive, cloudWritable, sessions]
+  );
+
+  const persistFolder = useCallback(
+    async (folder: SessionFolder): Promise<void> => {
+      if (!cloudActive) {
+        await folderStore.save(folder);
+        return;
+      }
+
+      if (!cloudWritable) {
+        setAuthStatusMessage('Cloud is read-only right now. Reconnect and sign in to save folders.');
+        return;
+      }
+
+      await folderStoreCloud.save(folder);
+      if (storageMode === 'hybrid') {
+        try {
+          await folderStore.save(folder);
+        } catch {
+          // Mirror save is best-effort only.
+        }
+      }
+    },
+    [cloudActive, cloudWritable, storageMode]
+  );
+
+  const createFolder = useCallback(
+    async (name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) {
+        return;
+      }
+      const folder: SessionFolder = {
+        id: crypto.randomUUID(),
+        name: trimmed,
+        createdAtMs: Date.now(),
+      };
+      setFolders((prev) => [...prev, folder].sort((a, b) => a.name.localeCompare(b.name)));
+      try {
+        await persistFolder(folder);
+        await refreshFolders();
+      } catch (error) {
+        setAuthStatusMessage(`Folder save failed: ${extractErrorMessage(error, 'Unknown error.')}`);
+      }
+    },
+    [persistFolder, refreshFolders]
+  );
+
+  const renameFolder = useCallback(
+    async (id: string, name: string) => {
+      const existing = folders.find((folder) => folder.id === id);
+      const trimmed = name.trim();
+      if (!existing || !trimmed) {
+        return;
+      }
+      const nextFolder: SessionFolder = { ...existing, name: trimmed };
+      setFolders((prev) => prev.map((folder) => (folder.id === id ? nextFolder : folder)).sort((a, b) => a.name.localeCompare(b.name)));
+      try {
+        await persistFolder(nextFolder);
+        await refreshFolders();
+      } catch (error) {
+        setAuthStatusMessage(`Folder rename failed: ${extractErrorMessage(error, 'Unknown error.')}`);
+      }
+    },
+    [folders, persistFolder, refreshFolders]
+  );
+
+  const moveSessionToFolder = useCallback(
+    async (sessionId: string, folderId?: string) => {
+      const existing = sessions.find((session) => session.id === sessionId);
+      if (!existing) {
+        return;
+      }
+      await saveSession({ ...existing, folderId: folderId || undefined });
+    },
+    [saveSession, sessions]
+  );
+
+  const toggleSessionPin = useCallback(
+    async (sessionId: string) => {
+      const existing = sessions.find((session) => session.id === sessionId);
+      if (!existing) {
+        return;
+      }
+      await saveSession({ ...existing, isPinned: !existing.isPinned });
+    },
+    [saveSession, sessions]
+  );
+
+  const deleteFolder = useCallback(
+    async (id: string) => {
+      setFolders((prev) => prev.filter((folder) => folder.id !== id));
+
+      const affectedSessions = sessions.filter((session) => session.folderId === id);
+      if (affectedSessions.length > 0) {
+        setSessions((prev) => prev.map((session) => (session.folderId === id ? { ...session, folderId: undefined } : session)));
+      }
+
+      try {
+        if (!cloudActive) {
+          await folderStore.remove(id);
+        } else if (!cloudWritable) {
+          setAuthStatusMessage('Cloud is read-only right now. Reconnect and sign in to delete folders.');
+          return;
+        } else {
+          await folderStoreCloud.remove(id);
+          if (storageMode === 'hybrid') {
+            try {
+              await folderStore.remove(id);
+            } catch {
+              // Mirror delete is best-effort only.
+            }
+          }
+        }
+
+        for (const session of affectedSessions) {
+          await persistSession({ ...session, folderId: undefined });
+        }
+
+        await Promise.all([refreshFolders(), refreshSessions()]);
+      } catch (error) {
+        setAuthStatusMessage(`Folder delete failed: ${extractErrorMessage(error, 'Unknown error.')}`);
+      }
+    },
+    [cloudActive, cloudWritable, persistSession, refreshFolders, refreshSessions, sessions, storageMode]
   );
 
   const persistTemplate = useCallback(
@@ -505,13 +706,21 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
   const value = useMemo<AppStateValue>(
     () => ({
       sessions,
+      folders,
       templates,
       latestSession,
       loading,
       startSession,
       saveSession,
+      deleteSession,
+      createFolder,
+      renameFolder,
+      deleteFolder,
+      moveSessionToFolder,
+      toggleSessionPin,
       getSession,
       refreshSessions,
+      refreshFolders,
       saveTemplate,
       updateTemplate,
       deleteTemplate,
@@ -539,15 +748,22 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
       authRequired,
       authStatusMessage,
       authUser,
+      createFolder,
+      deleteFolder,
       clearStatusMessage,
+      deleteSession,
       deleteTemplate,
+      folders,
       getSession,
       isOnline,
       latestSession,
       loading,
+      moveSessionToFolder,
       offlineReadOnly,
+      refreshFolders,
       refreshSessions,
       refreshTemplates,
+      renameFolder,
       saveSession,
       saveTemplate,
       signInWithPassword,
@@ -561,6 +777,7 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
       startSession,
       storageMode,
       templates,
+      toggleSessionPin,
       updateTemplate
     ]
   );

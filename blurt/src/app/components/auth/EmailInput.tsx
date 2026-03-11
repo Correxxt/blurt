@@ -4,7 +4,7 @@ interface EmailInputProps extends InputHTMLAttributes<HTMLInputElement> {
   hasError?: boolean;
 }
 
-export function EmailInput({ hasError, className = '', ...props }: EmailInputProps) {
+export function EmailInput({ hasError, className = '', placeholder, ...props }: EmailInputProps) {
   return (
     <input
       {...props}
@@ -24,7 +24,7 @@ export function EmailInput({ hasError, className = '', ...props }: EmailInputPro
         focus:outline-none
         ${className}
       `}
-      placeholder="you@example.com"
+      placeholder={placeholder ?? 'you@example.com'}
     />
   );
 }

@@ -11,6 +11,8 @@ type SessionRow = {
   duration_sec: number;
   started_at_ms: number;
   ended_at_ms: number | null;
+  folder_id: string | null;
+  is_pinned: boolean | null;
   notes: SessionNote[] | null;
   updated_at_ms: number;
 };
@@ -23,6 +25,8 @@ const toSession = (row: SessionRow): Session => ({
   durationSec: row.duration_sec,
   startedAtMs: row.started_at_ms,
   endedAtMs: row.ended_at_ms ?? undefined,
+  folderId: row.folder_id ?? undefined,
+  isPinned: row.is_pinned ?? false,
   notes: row.notes ?? []
 });
 
@@ -35,6 +39,8 @@ const toRow = (session: Session, userId: string): SessionRow => ({
   duration_sec: session.durationSec,
   started_at_ms: session.startedAtMs,
   ended_at_ms: session.endedAtMs ?? null,
+  folder_id: session.folderId ?? null,
+  is_pinned: session.isPinned ?? false,
   notes: session.notes,
   updated_at_ms: Date.now()
 });
@@ -87,5 +93,14 @@ export const sessionStoreCloud = {
     }
 
     return toSession(data as SessionRow);
+  },
+
+  async remove(id: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    const userId = await requireUserId();
+    const { error } = await supabase.from('sessions').delete().eq('user_id', userId).eq('id', id);
+    if (error) {
+      throw error;
+    }
   }
 };

@@ -1,7 +1,9 @@
 import { Session } from '../types/session';
+import { SessionFolder } from '../types/folder';
 import { SessionTemplate } from '../types/template';
 
 const SESSION_CACHE_PREFIX = 'blurt:cache:sessions:';
+const FOLDER_CACHE_PREFIX = 'blurt:cache:folders:';
 const TEMPLATE_CACHE_PREFIX = 'blurt:cache:templates:';
 const LAST_USER_ID_KEY = 'blurt:cache:last-user-id';
 
@@ -17,6 +19,7 @@ const safeParse = <T>(raw: string | null, fallback: T): T => {
 };
 
 const getSessionKey = (userId: string) => `${SESSION_CACHE_PREFIX}${userId}`;
+const getFolderKey = (userId: string) => `${FOLDER_CACHE_PREFIX}${userId}`;
 const getTemplateKey = (userId: string) => `${TEMPLATE_CACHE_PREFIX}${userId}`;
 
 const getLastUserId = (): string | null => {
@@ -49,6 +52,29 @@ export const offlineCache = {
       return [];
     }
     return safeParse<Session[]>(window.localStorage.getItem(getSessionKey(userId)), []);
+  },
+
+  removeSession(userId: string | null, sessionId: string): void {
+    if (typeof window === 'undefined' || !userId) {
+      return;
+    }
+    const sessions = safeParse<Session[]>(window.localStorage.getItem(getSessionKey(userId)), []);
+    window.localStorage.setItem(getSessionKey(userId), JSON.stringify(sessions.filter((session) => session.id !== sessionId)));
+  },
+
+  cacheFolders(userId: string, folders: SessionFolder[]): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    setLastUserId(userId);
+    window.localStorage.setItem(getFolderKey(userId), JSON.stringify(folders));
+  },
+
+  readFolders(userId: string | null): SessionFolder[] {
+    if (typeof window === 'undefined' || !userId) {
+      return [];
+    }
+    return safeParse<SessionFolder[]>(window.localStorage.getItem(getFolderKey(userId)), []);
   },
 
   cacheTemplates(userId: string, templates: SessionTemplate[]): void {

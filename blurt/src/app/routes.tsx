@@ -7,6 +7,7 @@ import { NotificationsPage } from './pages/NotificationsPage';
 import { SessionPage } from './pages/SessionPage';
 import { SessionReviewPage } from './pages/SessionReviewPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { SettingsPage } from './pages/SettingsPage';
 
 export const router = createBrowserRouter([
   {
@@ -16,7 +17,8 @@ export const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       { path: 'library', element: <LibraryPage /> },
       { path: 'collaborate', element: <CollaboratePage /> },
-      { path: 'notifications', element: <NotificationsPage /> }
+      { path: 'notifications', element: <NotificationsPage /> },
+      { path: 'settings', element: <SettingsPage /> }
     ]
   },
   {

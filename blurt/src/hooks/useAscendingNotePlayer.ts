@@ -1,4 +1,5 @@
 import { useCallback, useRef } from 'react';
+import { usePreferences } from '../app/preferences';
 
 const NOTE_COUNT = 21;
 
@@ -6,6 +7,7 @@ const buildNotePaths = () =>
   Array.from({ length: NOTE_COUNT }, (_, index) => `/sfx/notes/note_${String(index + 1).padStart(2, '0')}.wav`);
 
 export const useAscendingNotePlayer = () => {
+  const { preferences } = usePreferences();
   const nextIndexRef = useRef(0);
   const playersRef = useRef<HTMLAudioElement[] | null>(null);
 
@@ -17,6 +19,10 @@ export const useAscendingNotePlayer = () => {
   };
 
   const playNext = useCallback(async () => {
+    if (!preferences.soundEnabled) {
+      return;
+    }
+
     const players = getPlayers();
     if (players.length === 0) {
       return;
@@ -32,7 +38,7 @@ export const useAscendingNotePlayer = () => {
     } catch {
       // Ignore autoplay or decode failures so note creation always succeeds.
     }
-  }, []);
+  }, [preferences.soundEnabled]);
 
   const reset = useCallback(() => {
     nextIndexRef.current = 0;

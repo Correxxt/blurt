@@ -5,6 +5,7 @@ import { StartupSplash } from './app/components/StartupSplash';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AuthGate } from './app/components/AuthGate';
 import { initDeepLinkAuth } from './services/deepLinkAuth';
+import { PreferencesProvider, usePreferences } from './app/preferences';
 
 const AppShell = () => {
   return (
@@ -14,7 +15,8 @@ const AppShell = () => {
   );
 };
 
-function App() {
+const AppContent = () => {
+  const { preferences } = usePreferences();
   const [showSplash, setShowSplash] = useState(true);
   const startupAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -24,6 +26,20 @@ function App() {
       unlisten = stop;
     });
 
+    return () => {
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!preferences.startupChimeEnabled) {
+      startupAudioRef.current?.pause();
+      startupAudioRef.current = null;
+      return;
+    }
+
     const startupAudio = new Audio('/sfx/startup/startup.wav');
     startupAudio.preload = 'auto';
     startupAudioRef.current = startupAudio;
@@ -32,21 +48,32 @@ function App() {
     });
 
     return () => {
-      if (unlisten) {
-        unlisten();
+      startupAudio.pause();
+      if (startupAudioRef.current === startupAudio) {
+        startupAudioRef.current = null;
       }
     };
-  }, []);
+  }, [preferences.startupChimeEnabled]);
 
   const handleSplashComplete = useCallback(() => {
     setShowSplash(false);
   }, []);
 
   return (
-    <AppStateProvider>
+    <>
       <AppShell />
       {showSplash && <StartupSplash onComplete={handleSplashComplete} />}
-    </AppStateProvider>
+    </>
+  );
+};
+
+function App() {
+  return (
+    <PreferencesProvider>
+      <AppStateProvider>
+        <AppContent />
+      </AppStateProvider>
+    </PreferencesProvider>
   );
 }
 
